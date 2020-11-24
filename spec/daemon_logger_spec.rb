@@ -172,4 +172,22 @@ describe ServerEngine::DaemonLogger do
     $stderr = STDERR
     stderr.should_not =~ /(log shifting failed|log writing failed|log rotation inter-process lock failed)/
   end
+
+  it 'reopen log when logdev is renamed' do
+    pending "not supported inotify on Windows" if ServerEngine.windows?
+
+    log = DaemonLogger.new("tmp/rotate.log", level: 'trace')
+    pid1 = Process.fork do
+      begin
+        File.rename("tmp/rotate.log", "tmp/rotate.log.1")
+        log.info '1' * 15
+      rescue
+      end
+    end
+    lsof = IO.popen("lsof | grep rotate.log.1") do |io|
+      io.read
+    end
+    Process.waitpid pid1
+    lsof.should_not =~ /rotate\.log\.1/
+  end
 end
